@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.helloworld";
+option java_outer_classname = "HelloWorldProto";
+
+package Arith;
+
+// The Arith service definition.
+service Arith {
+  rpc Multiply (Args) returns (Production) {}
+  rpc Divide (Args) returns (Quotient) {}
+}
+
+// The request message containing two arguments
+message Args {
+  int32 A = 1;
+  int32 B = 2;
+}
+
+// The response message containing the multiply result
+message Production {
+  int32 Value = 1;
+}
+
+// The response message containing the divide result
+message Quotient {
+  int32 Quo = 1;
+  int32 Rem = 2;
+}

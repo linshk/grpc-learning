@@ -14,7 +14,6 @@ type Quotient struct {
     Quo, Rem int
 }
 
-type Arith int
 
 var serverAddress string = "127.0.0.1"
 
@@ -25,12 +24,12 @@ func main() {
     }
     // Synchronous call
     args := &Args{9,4}
-    var reply Arith
+    var reply int
     err = client.Call("Arith.Multiply", args, &reply)
     if err != nil {
         log.Fatal("arith error:", err)
     }
-    fmt.Printf("Arith: %d * %d=%d\n", args.A, args.B, reply)
+    fmt.Printf("Arith: %d * %d = %d\n", args.A, args.B, reply)
     var quotient Quotient
     err = client.Call("Arith.Divide", args, &quotient)
     if err != nil {
