@@ -6,12 +6,18 @@
 
 gRPC是一个高性能、通用的开源RPC框架，其由Google主要面向移动应用开发并基于HTTP/2协议标准而设计，基于ProtoBuf(Protocol Buffers)序列化协议开发，且支持众多开发语言。 gRPC提供了一种简单的方法来精确地定义服务和为iOS、Android和后台支持服务自动生成可靠性很强的客户端功能库。 客户端充分利用高级流和链接功能，从而有助于节省带宽、降低TCP连接次数、节省CPU使用和电池寿命。 
 
-
+![grpc](https://grpc.io/img/landing-2.svg)
 
 > RPC(Remote Procedure Call，远程过程调用)是一种通过网络从远程计算机程序上请求服务，而不需要了解底层网络细节的应用程序通信协议。RPC协议构建于TCP或UDP,或者是HTTP上。允许开发者直接调用另一台服务器上的程序，而开发者无需另外的为这个调用过程编写网络通信相关代码，使得开发网络分布式程序在内的应用程序更加容易
 >
 > RPC采用客户端-服务器端的工作模式，请求程序就是一个客户端，而服务提供程序就是一个服务器端。当执行一个远程过程调用时，客户端程序首先先发送一个带有参数的调用信息到服务端，然后等待服务端响应。在服务端，服务进程保持睡眠状态直到客户端的调用信息到达。当一个调用信息到达时，服务端获得进程参数，计算出结果，并向客户端发送应答信息。然后等待下一个调用。
 
+
+### gRPC特性
+- 服务定义简单
+- 跨语言和跨平台
+- 启动快，伸缩性好
+- 支持服务端和客户端双向流
 
 
 ## RPC实践
@@ -693,5 +699,171 @@ $ GOPATH/src/google.golang.org/grpc
 go get -u github.com/golang/protobuf/protoc-gen-go
 ```
 
+### 定义Arith服务
 
+```protobuf
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.helloworld";
+option java_outer_classname = "HelloWorldProto";
+
+package Arith;
+
+// The Arith service definition.
+service Arith {
+  rpc Multiply (Args) returns (Production) {}
+  rpc Divide (Args) returns (Quotient) {}
+}
+
+// The request message containing two arguments
+message Args {
+  int32 A = 1;
+  int32 B = 2;
+}
+
+// The response message containing the multiply result
+message Production {
+  int32 Value = 1;
+}
+
+// The response message containing the divide result
+message Quotient {
+  int32 Quo = 1;
+  int32 Rem = 2;
+}
+```
+
+关于更详细的proto3语法，详见[Protocol Buffers Overviews](https://developers.google.com/protocol-buffers/docs/overview)
+
+
+
+### 编译Arith.proto
+
+```sh
+$ cd $GOPATH/src/github.com/linshk/grpc-learning/examples/grpc/Arith
+$ protoc -I Arith --go_out=plugins=grpc:Arith Arith/Arith.proto
+```
+
+编译成功后便在Arith目录下自动生成了Arith.pb.go。
+
+
+
+### 实现服务端和客户端
+
+服务端
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"net"
+
+	"google.golang.org/grpc"
+	pb "github.com/linshk/grpc-learning/examples/grpc/Arith/Arith"
+	"google.golang.org/grpc/reflection"
+)
+
+const (
+	port = ":50051"
+)
+
+// server is used to implement Arith.ArithServer.
+type server struct{}
+
+// Multiply implements Arith.ArithServer
+func (s *server) Multiply(ctx context.Context, in *pb.Args) (*pb.Production, error) {
+	log.Printf("Received: A = %v, B = %v", in.A, in.B)
+	return &pb.Production{Value: in.A * in.B}, nil
+}
+
+// Divide implements Arith.ArithServer
+func (s *server) Divide(ctx context.Context, in *pb.Args) (*pb.Quotient, error) {
+	log.Printf("Received: A = %v, B = %v", in.A, in.B)
+	return &pb.Quotient{Quo: in.A / in.B, Rem: in.A % in.B}, nil
+}
+
+func main() {
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	log.Printf("Arith server listening at localhost%s", port)
+	s := grpc.NewServer()
+	pb.RegisterArithServer(s, &server{})
+	// Register reflection service on gRPC server.
+	reflection.Register(s)
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+```
+
+
+
+客户端
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"google.golang.org/grpc"
+	pb "github.com/linshk/grpc-learning/examples/grpc/Arith/Arith"
+)
+
+const (
+	address     = "localhost:50051"
+)
+
+func main() {
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := pb.NewArithClient(conn)
+
+	// Contact the server and print out its response.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	args := pb.Args{A: 9, B: 4}
+	r1, err := c.Multiply(ctx, &args)
+	if err != nil {
+		log.Fatalf("could not call Multiply: %v", err)
+	}
+	log.Printf("%d * %d = %d", args.A, args.B, r1.Value)
+
+	r2, err := c.Divide(ctx, &args)
+	if err != nil {
+		log.Fatalf("could not call Divide: %v", err)
+	}
+	log.Printf("%d / %d = %d remains %d", args.A, args.B, r2.Quo, r2.Rem)
+}
+```
+
+
+
+### 运行服务端和客户端
+
+```sh
+$ cd $GOPATH/src/github.com/linshk/grpc-learning/
+$ go run examples/grpc/Arith/Arith_server/main.go
+# 在另一个窗口运行客户端
+$ go run examples/rpc/Arith/Arith_client/main.go
+
+# 服务端输出：
+# 2019/01/19 12:16:39 Arith server listening at localhost:50051
+# 2019/01/19 12:18:01 Received: A = 9, B = 4
+# 2019/01/19 12:18:01 Received: A = 9, B = 4
+# 客户端输出
+# 2019/01/19 12:18:01 9 * 4 = 36
+# 2019/01/19 12:18:01 9 / 4 = 2 remains 1
+```
 
