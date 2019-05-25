@@ -697,8 +697,7 @@ $ go get -u google.golang.org/grpc
 $ go get -d github.com/grpc/grpc-go
 # 创建所需的文件夹
 $ mkdir -p $GOPATH/src/google.golang.org/
-$ mv $GOPATH/src/github.com/grpc/grpc-go 
-$ GOPATH/src/google.golang.org/grpc
+$ mv $GOPATH/src/github.com/grpc/grpc-go $GOPATH/src/google.golang.org/grpc
 ```
 
 更详细的内容可参考[Get Golang Packages on Golang.org in China](https://github.com/northbright/Notes/blob/master/Golang/china/get-golang-packages-on-golang-org-in-china.md)
